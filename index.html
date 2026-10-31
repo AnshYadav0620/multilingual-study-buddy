@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Study Buddy</title>
+<style>
+  :root {
+    --bg: #f3f6f8; --card: #ffffff; --ink: #14232e; --muted: #5b6b77;
+    --line: #d5dee5; --accent: #0b6e8a; --accent-ink: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1a21; --card: #17262f; --ink: #e8f0f4; --muted: #9bb0bd;
+      --line: #2b3f4b; --accent: #4cc2e0; --accent-ink: #08212b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 680px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  p.sub { margin: 0 0 20px; color: var(--muted); }
+  section { background: var(--card); border: 1px solid var(--line);
+            border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  h2 { font-size: 1rem; margin: 0 0 10px; }
+  label { display: block; font-size: .9rem; color: var(--muted); margin: 10px 0 4px; }
+  select, textarea, input[type=file] { width: 100%; padding: 10px; font: inherit; color: var(--ink);
+            background: var(--bg); border: 1px solid var(--line); border-radius: 8px; }
+  textarea { min-height: 90px; resize: vertical; }
+  .row { display: flex; gap: 12px; }
+  .row > div { flex: 1; }
+  button { font: inherit; font-weight: 600; padding: 10px 16px; border-radius: 8px; cursor: pointer;
+           border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); margin-top: 12px; }
+  button.ghost { background: transparent; color: var(--accent); }
+  button:disabled { opacity: .6; cursor: wait; }
+  button:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  #status { color: var(--muted); font-size: .9rem; margin-top: 8px; min-height: 1.2em; }
+  #answer { white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Study Buddy</h1>
+  <p class="sub">Notes ya notes ki photo upload karo, phir kisi bhi language mein poochho. Sab kuchh Gemma 4 se chalta hai.</p>
+
+  <section>
+    <h2>1. Upload notes</h2>
+    <input type="file" id="file" accept=".pdf,.txt,.md,.png,.jpg,.jpeg,.webp">
+    <button id="uploadBtn">Upload</button>
+    <button class="ghost" id="resetBtn">Clear all notes</button>
+    <div id="status"></div>
+  </section>
+
+  <section>
+    <h2>2. Ask</h2>
+    <div class="row">
+      <div>
+        <label for="mode">What do you want?</label>
+        <select id="mode">
+          <option value="answer">Answer my question</option>
+          <option value="summary">Summarize a topic</option>
+          <option value="quiz">Quiz me</option>
+        </select>
+      </div>
+      <div>
+        <label for="lang">Reply language</label>
+        <select id="lang">
+          <option value="auto">Same as my question</option>
+          <option>Hinglish</option>
+          <option>Hindi</option>
+          <option>English</option>
+          <option>Marathi</option>
+          <option>Tamil</option>
+          <option>Bengali</option>
+        </select>
+      </div>
+    </div>
+    <label for="q">Your question or topic</label>
+    <textarea id="q" placeholder="Jaise: Photosynthesis kya hota hai?"></textarea>
+    <button id="askBtn">Ask Study Buddy</button>
+  </section>
+
+  <section>
+    <h2>Answer</h2>
+    <div id="answer">Your answer will appear here.</div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+async function call(url, options) {
+  const res = await fetch(url, options);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Something went wrong");
+  return data;
+}
+
+$("uploadBtn").onclick = async () => {
+  const f = $("file").files[0];
+  if (!f) { $("status").textContent = "Choose a file or photo first."; return; }
+  const fd = new FormData();
+  fd.append("file", f);
+  $("uploadBtn").disabled = true;
+  $("status").textContent = "Uploading...";
+  try {
+    const d = await call("/upload", { method: "POST", body: fd });
+    $("status").textContent = "Added " + d.file + " (" + d.kind + ").";
+  } catch (e) { $("status").textContent = e.message; }
+  $("uploadBtn").disabled = false;
+};
+
+$("resetBtn").onclick = async () => {
+  try {
+    await call("/reset", { method: "POST" });
+    $("status").textContent = "All notes cleared.";
+  } catch (e) { $("status").textContent = e.message; }
+};
+
+$("askBtn").onclick = async () => {
+  const question = $("q").value.trim();
+  if (!question) { $("answer").textContent = "Type a question first."; return; }
+  $("askBtn").disabled = true;
+  $("answer").textContent = "Thinking...";
+  try {
+    const d = await call("/ask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question, mode: $("mode").value, language: $("lang").value })
+    });
+    $("answer").textContent = d.answer;
+  } catch (e) { $("answer").textContent = e.message; }
+  $("askBtn").disabled = false;
+};
+</script>
+</body>
+</html>
